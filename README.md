@@ -24,8 +24,8 @@ deep-learning framework, Channel Optimisation with MultiInstance Learning (COMIL
 classification performance. Additionally, incorporating this
 method within an MIL framework, optimised at both the
 slide and instance levels, further improves the classification performance of whole-slide mIF images
----
-Rt=
+
+
 ![Hero Image](docs/Rana1.png)
 
 ## Method Overview
