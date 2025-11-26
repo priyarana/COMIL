@@ -26,9 +26,9 @@ method within an MIL framework, optimised at both the
 slide and instance levels, further improves the classification performance of whole-slide mIF images
 ---
 Rt=
-![Hero Image](docs/figure1.png)
+![Hero Image](docs/Rana1.png)
 
 ## Method Overview
 Describe your method here...
 
-![Pipeline](docs/pipeline.png)
+![Pipeline](docs/FrmWrk.png)
