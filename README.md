@@ -50,69 +50,31 @@ COMIL expects bags shaped:[N_patches, C_channels, D_features]
 Example: [N, 7, 2048]
 For examples of patch feature extraction, please refer to CLAM and Section C of our <a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11265862">📄 Paper</a>
 
-
-
 🔹 Patch-Level Multi-Channel Features
-<pre> patch_features = torch.stack([ biomarker_feat1, # 2048-D biomarker_feat2, # 2048-D ... biomarker_featN, # 2048-D dapi_feat, # 2048-D af_feat # 2048-D ], dim=0) # → [C_channels, 2048] </pre>
+<pre> patch_features = torch.stack([ biomarker_feat1, biomarker_feat2,... biomarker_featN, dapi_feat, af_feat # 2048-D ], dim=0) # → [C_channels, 2048] </pre>
+
 🔹 Using COMIL in Your Pipeline
-<pre> from comil import COMIL model = COMIL( n_classes=2, size_arg="small", gate=True, dropout=True, k_sample=8 ) </pre>
+<pre> from comil import COMIL
+ model = COMIL( n_classes=2, size_arg="small", gate=True, dropout=True, k_sample=8 )
+</pre>
+
 🔹 GCT (Gated Channel Transformation)
+<pre> 
+ from comil import GCT 
+ x = self.gct(x) # x: [N, C, D] 
+</pre>
 
-Reusable channel-attention module:
+🔹 ADL (Adaptive Dual Loss): Balances slide-level and instance-level MIL losses:
 
-<pre> from comil import GCT x = self.gct(x) # x: [N, C, D] </pre>
-🔹 ADL (Adaptive Dual Loss)
-
-Balances bag-level and instance-level MIL losses:
-
-<pre> bag_loss = loss_fn(logits, label) instance_loss = instance_dict['instance_loss'] if bag_loss > instance_loss: total_loss = args.bag_weight * bag_loss + (1 - args.bag_weight) * instance_loss else: total_loss = args.bag_weight * instance_loss + (1 - args.bag_weight) * bag_loss </pre>
+<pre> bag_loss = loss_fn(logits, label) 
+ instance_loss = instance_dict['instance_loss'] 
+ if bag_loss > instance_loss: 
+ total_loss = args.bag_weight * bag_loss + (1 - args.bag_weight) * instance_loss 
+ else: 
+ total_loss = args.bag_weight * instance_loss + (1 - args.bag_weight) * bag_loss 
+</pre>
 
 Drop this into any MIL training loop (CLAM, ABMIL, DSMIL, TransMIL, custom MIL, etc.).
-
-🔹 Patch-Level Multi-Channel Features:
-patch_features = torch.stack([
-    biomarker_feat1,   # 2048-D
-    biomarker_feat2,   # 2048-D
-    ...
-    biomarker_featN,   # 2048-D
-    dapi_feat,         # 2048-D
-    af_feat            # 2048-D
-], dim=0)              # → [C_channels, 2048]
-
-🔹 Using COMIL in Your Pipeline:
-from comil import COMIL
-
-model = COMIL(
-    n_classes=2,
-    size_arg="small",
-    gate=True,
-    dropout=True,
-    k_sample=8
-)
-
-🔹 GCT (Gated Channel Transformation)
-
-Reusable channel-attention module:
-
-```python
-from comil import GCT
-
-x = self.gct(x)   # x: [N, C, D]
-
-
-🔹 ADL (Adaptive Dual Loss)
-
-Balances bag-level and instance-level MIL losses:
-bag_loss = loss_fn(logits, label)
-instance_loss = instance_dict['instance_loss']
-
-if bag_loss > instance_loss:
-    total_loss = args.bag_weight * bag_loss + (1 - args.bag_weight) * instance_loss
-else:
-    total_loss = args.bag_weight * instance_loss + (1 - args.bag_weight) * bag_loss
-Drop this into any MIL training loop (CLAM, ABMIL, DSMIL, custom MIL, etc.).
-
-
 
 
 
