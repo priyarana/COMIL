@@ -41,9 +41,55 @@ slide and instance levels, further improves the classification performance of wh
 </p>
 
 
-
-
 ## Method Overview
-Describe your method here...
-
 ![Pipeline](docs/FrmWrk.png)
+
+
+COMIL is a Multi-Instance Learning (MIL) framework which includes Gated Channel Transformation (GCT) and Adaptive Loss function (ADL) designed for datasets where each instance (patch) contains multiple biomarkers/channels, such as:
+Biomarkers (CD8, CD68, CD16, PD-L1 etc.)
+DAPI (nuclear stain)
+Autofluorescence (AF).
+
+COMIL takes input tensors of shape: [N_patches, C_channels, D_features], e.g.: [N, 7, 2048]
+
+GCT:
+from comil import GCT
+x = self.gct(x)
+
+ADL:
+bag_loss = loss_fn(logits, label)
+instance_loss = instance_dict['instance_loss']
+
+if bag_loss > instance_loss:
+    total_loss = args.bag_weight * bag_loss + (1 - args.bag_weight) * instance_loss
+else:
+    total_loss = args.bag_weight * instance_loss + (1 - args.bag_weight) * bag_loss
+
+Drop into any MIL
+
+You can use this GCT block inside any MIL architecture.
+from comil import COMIL
+
+model = COMIL(
+    n_classes=2,
+    size_arg="small",
+    gate=True,
+    dropout=True,
+    k_sample=8
+)
+
+patch_features = torch.stack([
+    biomarker_feat1,     # 2048-D
+    biomarker_feat1,     # 2048-D
+    ......biomarker_featN,     # 2048-D
+    dapi_feat,          # 2048-D
+    af_feat,            # 2048-D
+], dim=0)               # shape → [C, 2048]
+
+WSI feature:  [N, 7, 2048]
+
+
+
+
+
+
