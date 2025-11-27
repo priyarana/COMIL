@@ -1,11 +1,20 @@
-# COMIL
-COMIL (Channel Optimisation with Multi-Instance Learning) models inter-channel relationships to capture complex biomarker dependencies. By incorporating an MIL framework optimised at both slide and instance levels, it enhances the classification performance of whole-slide mIF images for immunotherapy response prediction. 
+<h1 align="center">COMIL: <strong>C</strong>hannel <strong>O</strong>ptimisation with <strong>M</strong>ulti-<strong>I</strong>nstance <strong>L</strong>earning</h1>
 
-[Paper Title](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11265862)
-#Deep Learning Framework for Classifying Whole-slide Multiplex Immunofluorescence Images to Predict Immunotherapy Response in Melanoma Patients
-Journal of Biomedical and Health Informatics (JBHI), 2025.
-*Priyanka Rana, Tuba N Gide, Nurudeen A Adegoke, Yizhe Mao, Shlomo Berkovsky, Enrico Coiera, James S Wilmott, Sidong Liu*
-| [Paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11265862) |
+<p align="center">
+Models inter-channel relationships to capture complex biomarker dependencies.<br>
+Enhances slide- and instance-level MIL for whole-slide mIF classification in immunotherapy response prediction.
+</p>
+
+<p align="center">
+<a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11265862">📄 Paper</a>
+</p>
+
+<p align="center"><strong>Deep Learning Framework for Classifying Whole-slide Multiplex Immunofluorescence Images to Predict Immunotherapy Response in Melanoma Patients</strong></p>
+
+<p align="center"><em>Journal of Biomedical and Health Informatics (JBHI), 2025</em></p>
+
+<p align="center"><em>Priyanka Rana, Tuba N Gide, Nurudeen A Adegoke, Yizhe Mao, Shlomo Berkovsky, Enrico Coiera, James S Wilmott, Sidong Liu</em></p>
+
 
 ## Abstract
 Immunotherapy has emerged as a prominent approach in melanoma treatment, however a substantial number of patients do not respond effectively.
@@ -27,7 +36,12 @@ method within an MIL framework, optimised at both the
 slide and instance levels, further improves the classification performance of whole-slide mIF images
 
 
-![Hero Image](docs/Rana1.png)
+<p align="center">
+  <img src="docs/Rana1.png" width="65%">
+</p>
+
+
+
 
 ## Method Overview
 Describe your method here...
