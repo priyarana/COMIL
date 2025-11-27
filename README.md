@@ -37,7 +37,7 @@ slide and instance levels, further improves the classification performance of wh
 
 
 <p align="center">
-  <img src="docs/Rana1.png" width="65%">
+  <img src="docs/gRana1_.png" width="65%">
 </p>
 
 
