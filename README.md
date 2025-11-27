@@ -64,7 +64,7 @@ For examples of patch feature extraction, please refer to CLAM and Section C of 
  x = self.gct(x) # x: [N, C, D] 
 </pre>
 
-🔹 ADL (Adaptive Dual Loss): Balances slide-level and instance-level MIL losses:
+🔹 ADL (Adaptive Loss function): Balances slide-level and instance-level MIL losses:
 
 <pre> bag_loss = loss_fn(logits, label) 
  instance_loss = instance_dict['instance_loss'] 
