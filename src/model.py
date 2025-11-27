@@ -5,33 +5,70 @@ import numpy as np
 from utils.utils import initialize_weights
 
 
-# -------------------------
-#   ATTENTION NETWORKS
-# -------------------------
+
+# ================================================================
+#   GCT: Global Context Transform (Reusable Module)
+#   From: GCT — Global Context Transform Block for Channel Attention
+# ================================================================
+class GCT(nn.Module):
+    def __init__(self, channels, eps=1e-5):
+        """
+        channels: number of channel groups in input [N, C, D]
+        eps: numerical stability
+        """
+        super().__init__()
+        self.eps = eps
+
+        # trainable scaling parameters
+        self.alpha = nn.Parameter(torch.ones(1, channels, 1))
+        self.gamma = nn.Parameter(torch.zeros(1, channels, 1))
+        self.beta  = nn.Parameter(torch.zeros(1, channels, 1))
+
+    def forward(self, x):
+        """
+        x: [N, C, D]
+        Applies GCT on channel dimension C.
+        """
+        # Channel L2-magnitude (Global Context)
+        embedding = (x.pow(2).sum(2, keepdim=True) + self.eps).sqrt()
+        embedding = embedding * self.alpha  # scale
+
+        # Cross-channel normalization
+        denom = (embedding.pow(2).mean(dim=1, keepdim=True) + self.eps).sqrt()
+        norm = self.gamma / denom
+
+        # Tanh gate
+        gate = 1. + torch.tanh(embedding * norm + self.beta)
+
+        return x * gate            # [N, C, D]
+
+
+
+# ================================================================
+#   Attention Networks (unchanged)
+# ================================================================
 class Attn_Net(nn.Module):
-    """2-layer attention network"""
     def __init__(self, L=1024, D=256, dropout=False, n_classes=1):
         super().__init__()
         layers = [nn.Linear(L, D), nn.Tanh()]
         if dropout:
             layers.append(nn.Dropout(0.25))
         layers.append(nn.Linear(D, n_classes))
-        self.attention = nn.Sequential(*layers)
+        self.attn = nn.Sequential(*layers)
 
     def forward(self, x):
-        A = self.attention(x)
-        return A, x
+        return self.attn(x), x
 
 
 class Attn_Net_Gated(nn.Module):
-    """Gated attention network (TanH × Sigmoid)"""
     def __init__(self, L=1024, D=256, dropout=False, n_classes=1):
         super().__init__()
         a = [nn.Linear(L, D), nn.Tanh()]
-        b = [nn.Linear(L, D), nn.sigmoid()]
+        b = [nn.Linear(L, D), nn.Sigmoid()]
         if dropout:
             a.append(nn.Dropout(0.5))
             b.append(nn.Dropout(0.5))
+
         self.att_a = nn.Sequential(*a)
         self.att_b = nn.Sequential(*b)
         self.att_c = nn.Linear(D, n_classes)
@@ -43,113 +80,84 @@ class Attn_Net_Gated(nn.Module):
         return A, x
 
 
-# -------------------------
-#   COMIL MODEL
-# -------------------------
+
+# ================================================================
+#                        COMIL MODEL
+# ================================================================
 class COMIL(nn.Module):
 
-    def __init__(self, gate=True, size_arg="small",
-                 dropout=True, k_sample=8, n_classes=2,
+    def __init__(self,
+                 gate=True,
+                 size_arg="small",
+                 dropout=True,
+                 k_sample=8,
+                 n_classes=2,
                  instance_loss_fn=nn.CrossEntropyLoss(),
                  subtyping=False,
                  epsilon=1e-5):
 
         super().__init__()
 
-        # Input feature = 2048-dim, typical for ResNet101
         size_dict = {
             "small": [2048, 1024, 512],
             "big":   [2048, 1024, 768]
         }
+
         in_dim, hid_dim, att_dim = size_dict[size_arg]
 
-        self.epsilon = epsilon
-        self.k_sample = k_sample
         self.n_classes = n_classes
+        self.k_sample = k_sample
         self.instance_loss_fn = instance_loss_fn
         self.subtyping = subtyping
 
-        # --- Channel gating parameters ---
-        self.alpha = nn.Parameter(torch.ones(1, 7, 1))
-        self.gamma = nn.Parameter(torch.zeros(1, 7, 1))
-        self.beta  = nn.Parameter(torch.zeros(1, 7, 1))
+        # ======================
+        #  GCT Module (Reusable)
+        # ======================
+        self.gct = GCT(channels=7, eps=epsilon)
 
-        # --- Feature backbone before attention ---
-        fc_layers = [
+        # ======================
+        #  Encoder + Attention
+        # ======================
+        layers = [
             nn.Linear(in_dim, hid_dim),
             nn.ReLU(),
-            nn.BatchNorm1d(hid_dim),
+            nn.BatchNorm1d(hid_dim)
         ]
         if dropout:
-            fc_layers.append(nn.Dropout(0.25))
+            layers.append(nn.Dropout(0.25))
 
-        # --- Attention network ---
         if gate:
-            att_net = Attn_Net_Gated(L=hid_dim, D=att_dim, dropout=dropout, n_classes=1)
+            att_module = Attn_Net_Gated(L=hid_dim, D=att_dim, dropout=dropout, n_classes=1)
         else:
-            att_net = Attn_Net(L=hid_dim, D=att_dim, dropout=dropout, n_classes=1)
+            att_module = Attn_Net(L=hid_dim, D=att_dim, dropout=dropout, n_classes=1)
 
-        fc_layers.append(att_net)
-        self.attention_net = nn.Sequential(*fc_layers)
+        layers.append(att_module)
+        self.attention_net = nn.Sequential(*layers)
 
-        # --- Bag classifier ---
+        # ======================
+        #  Bag + Instance Classifiers
+        # ======================
         self.classifier = nn.Linear(hid_dim, n_classes)
 
-        # --- Instance-level classifiers (CLAM style) ---
         self.instance_classifiers = nn.ModuleList([
             nn.Linear(hid_dim, 2) for _ in range(n_classes)
         ])
 
         initialize_weights(self)
 
-    # ----------------------------------------------------------------------
-    # Utility target constructors
-    @staticmethod
-    def create_positive_targets(k, device):
-        return torch.ones(k, device=device, dtype=torch.long)
 
+    # -----------------------------------------------------------
+    # Utility targets
     @staticmethod
-    def create_negative_targets(k, device):
-        return torch.zeros(k, device=device, dtype=torch.long)
-    # ----------------------------------------------------------------------
+    def pos_targets(k, device): return torch.ones(k, device=device, dtype=torch.long)
+    @staticmethod
+    def neg_targets(k, device): return torch.zeros(k, device=device, dtype=torch.long)
+    # -----------------------------------------------------------
 
+
+    # ----------------------------------------------------------------
     def inst_eval(self, A, h, classifier):
-        """
-        In-the-class instance loss: top-k highest attention = positive,
-        top-k lowest attention = negative.
-        """
-        A = A.view(1, -1)               # [1, N]
-        device = h.device
-        N = A.size(1)
-
-        if self.k_sample >= N:
-            return torch.tensor(0., device=device), None, None
-
-        # top-k high attention
-        top_p_ids = torch.topk(A, self.k_sample, dim=1)[1][0]
-        top_p = h[top_p_ids]
-
-        # top-k low attention
-        top_n_ids = torch.topk(-A, self.k_sample, dim=1)[1][0]
-        top_n = h[top_n_ids]
-
-        p_targets = self.create_positive_targets(self.k_sample, device)
-        n_targets = self.create_negative_targets(self.k_sample, device)
-
-        all_targets = torch.cat([p_targets, n_targets])
-        all_instances = torch.cat([top_p, top_n])
-
-        logits = classifier(all_instances)
-        preds = logits.argmax(dim=1)
-        loss = self.instance_loss_fn(logits, all_targets)
-
-        return loss, preds, all_targets
-
-    def inst_eval_out(self, A, h, classifier):
-        """
-        Out-of-class instance loss (for subtyping).
-        Only top-k high attention → negative class.
-        """
+        """Top-k positive / Top-k negative selection"""
         A = A.view(1, -1)
         device = h.device
         N = A.size(1)
@@ -157,54 +165,89 @@ class COMIL(nn.Module):
         if self.k_sample >= N:
             return torch.tensor(0., device=device), None, None
 
-        top_ids = torch.topk(A, self.k_sample, dim=1)[1][0]
-        top_instances = h[top_ids]
+        # top-k positive
+        pos_ids = torch.topk(A, self.k_sample, dim=1)[1][0]
+        pos_feats = h[pos_ids]
 
-        targets = self.create_negative_targets(self.k_sample, device)
-        logits = classifier(top_instances)
+        # top-k negative
+        neg_ids = torch.topk(-A, self.k_sample, dim=1)[1][0]
+        neg_feats = h[neg_ids]
+
+        targets = torch.cat([
+            self.pos_targets(self.k_sample, device),
+            self.neg_targets(self.k_sample, device)
+        ])
+        feats = torch.cat([pos_feats, neg_feats])
+
+        logits = classifier(feats)
         preds = logits.argmax(dim=1)
         loss = self.instance_loss_fn(logits, targets)
 
         return loss, preds, targets
 
-    # ----------------------------------------------------------------------
+
+    def inst_eval_out(self, A, h, classifier):
+        """Subtyping negative-only sampling."""
+        A = A.view(1, -1)
+        device = h.device
+        N = A.size(1)
+
+        if self.k_sample >= N:
+            return torch.tensor(0., device=device), None, None
+
+        ids = torch.topk(A, self.k_sample, dim=1)[1][0]
+        feats = h[ids]
+
+        targets = self.neg_targets(self.k_sample, device)
+        logits = classifier(feats)
+        preds = logits.argmax(dim=1)
+        loss = self.instance_loss_fn(logits, targets)
+
+        return loss, preds, targets
+    # ----------------------------------------------------------------
+
+
+    # ================================================================
+    #                           FORWARD
+    # ================================================================
     def forward(self, h, label=None, instance_eval=False,
                 return_features=False, attention_only=False):
-
-        # h shape: [N, 7, 2048]
+        """
+        h: [N, 7, 2048]
+        """
         device = h.device
 
-        # ---------------------------
-        # 1) CHANNEL GATING
-        # ---------------------------
-        embedding = (h.pow(2).sum(2, keepdim=True) + self.epsilon).sqrt() * self.alpha
-        norm = self.gamma / ((embedding.pow(2).mean(1, keepdim=True) + self.epsilon).sqrt())
-        gate = 1. + torch.tanh(embedding * norm + self.beta)
-        h = h * gate
+        # -----------------------
+        # 1) GCT (Reusable)
+        # -----------------------
+        h = self.gct(h)            # [N, 7, 2048]
 
-        # Pool channels → [N, 2048]
+        # -----------------------
+        # 2) Channel pooling
+        # -----------------------
         h = F.adaptive_avg_pool1d(h.permute(0, 2, 1), 1).squeeze(-1)
+        # now h = [N, 2048]
 
-        # ---------------------------
-        # 2) APPLY ATTENTION NETWORK
-        # ---------------------------
-        A, h = self.attention_net(h)     # A: [N,1], h: [N,1024]
-        A = A.transpose(1, 0)            # → [1, N]
+        # -----------------------
+        # 3) Attention network
+        # -----------------------
+        A, h = self.attention_net(h)
+        A = A.transpose(1, 0)      # [1, N]
 
         if attention_only:
             return A
 
         A_raw = A
-        A = F.softmax(A, dim=1)          # normalized attention
+        A = F.softmax(A, dim=1)
 
-        # ---------------------------
-        # 3) INSTANCE EVALUATION
-        # ---------------------------
+        # -----------------------
+        # 4) Instance-level loss (optional)
+        # -----------------------
         results = {}
         if instance_eval:
             total_loss = 0.
-            all_preds = []
-            all_targets = []
+            preds_all = []
+            targets_all = []
 
             inst_labels = F.one_hot(label, num_classes=self.n_classes).squeeze()
 
@@ -218,21 +261,27 @@ class COMIL(nn.Module):
 
                 total_loss += loss
                 if preds is not None:
-                    all_preds.extend(preds.cpu().numpy())
-                    all_targets.extend(t.cpu().numpy())
+                    preds_all.extend(preds.cpu().numpy())
+                    targets_all.extend(t.cpu().numpy())
 
             if self.subtyping:
                 total_loss /= len(self.instance_classifiers)
 
-            results["instance_loss"] = total_loss
-            results["inst_preds"] = np.array(all_preds)
-            results["inst_labels"] = np.array(all_targets)
+            results = {
+                "instance_loss": total_loss,
+                "inst_preds": np.array(preds_all),
+                "inst_labels": np.array(targets_all)
+            }
 
-        # ---------------------------
-        # 4) BAG-LEVEL CLASSIFIER
-        # ---------------------------
-        M = A @ h                         # [1, 1024]
-        logits = self.classifier(M)       # [1, n_classes]
+        # -----------------------
+        # 5) MIL pooling
+        # -----------------------
+        M = A @ h                  # [1, 1024]
+
+        # -----------------------
+        # 6) Bag classification
+        # -----------------------
+        logits = self.classifier(M)
         Y_prob = F.softmax(logits, dim=1)
         Y_hat = logits.argmax(dim=1)
 
