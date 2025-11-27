@@ -45,18 +45,35 @@ slide and instance levels, further improves the classification performance of wh
 ![Pipeline](docs/FrmWrk.png)
 
 
-COMIL is a Multi-Instance Learning (MIL) framework which includes Gated Channel Transformation (GCT) and Adaptive Loss function (ADL) designed for datasets where each instance (patch) contains multiple biomarkers/channels, such as:
-Biomarkers (CD8, CD68, CD16, PD-L1 etc.)
-DAPI (nuclear stain)
-Autofluorescence (AF).
+## COMIL: Multi-Instance Learning with GCT + ADL
 
-COMIL takes input tensors of shape: [N_patches, C_channels, D_features], e.g.: [N, 7, 2048]
+**COMIL** is a Multi-Instance Learning (MIL) framework that integrates:
 
-GCT:
+- **GCT — Gated Channel Transformation**
+- **ADL — Adaptive Dual Loss**
+
+Designed for datasets where each patch contains multiple biomarker channels:
+
+- **Biomarkers:** CD8, CD68, CD16, PD-L1, etc.
+- **DAPI:** Nuclear stain
+- **AF:** Autofluorescence
+
+COMIL expects bags shaped:[N_patches, C_channels, D_features]
+Example: [N, 7, 2048]
+
+---
+
+### 🔹 GCT (Gated Channel Transformation)
+
+Reusable channel-attention module:
+
+```python
 from comil import GCT
-x = self.gct(x)
 
-ADL:
+x = self.gct(x)   # x: [N, C, D]
+🔹 ADL (Adaptive Dual Loss)
+
+Balances bag-level and instance-level MIL losses:
 bag_loss = loss_fn(logits, label)
 instance_loss = instance_dict['instance_loss']
 
@@ -64,10 +81,9 @@ if bag_loss > instance_loss:
     total_loss = args.bag_weight * bag_loss + (1 - args.bag_weight) * instance_loss
 else:
     total_loss = args.bag_weight * instance_loss + (1 - args.bag_weight) * bag_loss
+Drop this into any MIL training loop (CLAM, ABMIL, DSMIL, custom MIL, etc.).
 
-Drop into any MIL
-
-You can use this GCT block inside any MIL architecture.
+🔹 Using COMIL in Your Pipeline:
 from comil import COMIL
 
 model = COMIL(
@@ -77,16 +93,18 @@ model = COMIL(
     dropout=True,
     k_sample=8
 )
-
+🔹 Patch-Level Multi-Channel Features:
 patch_features = torch.stack([
-    biomarker_feat1,     # 2048-D
-    biomarker_feat1,     # 2048-D
-    ......biomarker_featN,     # 2048-D
-    dapi_feat,          # 2048-D
-    af_feat,            # 2048-D
-], dim=0)               # shape → [C, 2048]
+    biomarker_feat1,   # 2048-D
+    biomarker_feat2,   # 2048-D
+    ...
+    biomarker_featN,   # 2048-D
+    dapi_feat,         # 2048-D
+    af_feat            # 2048-D
+], dim=0)              # → [C_channels, 2048]
 
-WSI feature:  [N, 7, 2048]
+
+
 
 
 
