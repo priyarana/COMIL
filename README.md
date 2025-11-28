@@ -46,9 +46,9 @@ Designed for datasets where each patch contains multiple biomarker channels:
 - **DAPI:** Nuclear stain
 - **AF:** Autofluorescence
 
-COMIL expects bags shaped:[N_patches, C_channels, D_features]
-Example: [N, 7, 2048]
-For examples of patch feature extraction, please refer to CLAM and Section C of our <a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11265862">📄 Paper</a>
+COMIL expects bags shaped: [N_patches, C_channels, D_features]
+For example: [N, 7, 2048].
+For patch feature extraction, please refer to [CLAM](https://github.com/mahmoodlab/CLAM). and Section C of our <a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11265862">📄 Paper</a>
 
 🔹 Patch-Level Multi-Channel Features
 <pre> patch_features = torch.stack([ biomarker_feat1, biomarker_feat2,... biomarker_featN, dapi_feat, af_feat # 2048-D ], dim=0) # → [C_channels, 2048] </pre>
