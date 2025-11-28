@@ -53,12 +53,12 @@ For patch feature extraction, please refer to [CLAM](https://github.com/mahmoodl
 🔹 Patch-Level Multi-Channel Features
 <pre> patch_features = torch.stack([ biomarker_feat1, biomarker_feat2,... biomarker_featN, dapi_feat, af_feat # 2048-D ], dim=0) # → [C_channels, 2048] </pre>
 
-🔹 Using COMIL in Your Pipeline
+🔹 Using COMIL in your Pipeline
 <pre> from comil import COMIL
  model = COMIL( n_classes=2, size_arg="small", gate=True, dropout=True, k_sample=8 )
 </pre>
 
-🔹 GCT (Gated Channel Transformation)
+🔹 GCT (Gated Channel Transformation) for mIF images
 <pre> 
  from comil import GCT 
  x = self.gct(x) # x: [N, C, D] 
