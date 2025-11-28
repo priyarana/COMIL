@@ -38,7 +38,7 @@ COMIL models inter-channel relationships to capture complex dependencies across 
 **COMIL** is a Multi-Instance Learning (MIL) framework that integrates:
 
 - **GCT — Gated Channel Transformation**
-- **ADL — Adaptive Dual Loss**
+- **ADL — Adaptive Loss function**
 
 Designed for datasets where each patch contains multiple biomarker channels:
 
