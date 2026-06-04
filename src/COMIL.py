@@ -11,37 +11,19 @@ from utils.utils import initialize_weights
 #   From: GCT — Global Context Transform Block for Channel Attention
 # ================================================================
 class GCT(nn.Module):
-    def __init__(self, channels, eps=1e-5):
-        """
-        channels: number of channel groups in input [N, C, D]
-        eps: numerical stability
-        """
-        super().__init__()
-        self.eps = eps
+      """Global Context Transform (COMIL Stage 1), sum-norm / L2 variant (paper Eq.4)."""
+      def __init__(self, channels, eps=1e-5):
+          super().__init__()
+          self.eps   = eps
+          self.alpha = nn.Parameter(torch.ones(1, channels, 1))
+          self.gamma = nn.Parameter(torch.ones(1, channels, 1))   # =1 to match reported results
+          self.beta  = nn.Parameter(torch.zeros(1, channels, 1))
 
-        # trainable scaling parameters
-        self.alpha = nn.Parameter(torch.ones(1, channels, 1))
-        self.gamma = nn.Parameter(torch.zeros(1, channels, 1))
-        self.beta  = nn.Parameter(torch.zeros(1, channels, 1))
-
-    def forward(self, x):
-        """
-        x: [N, C, D]
-        Applies GCT on channel dimension C.
-        """
-        # Channel L2-magnitude (Global Context)
-        embedding = (x.pow(2).sum(2, keepdim=True) + self.eps).sqrt()
-        embedding = embedding * self.alpha  # scale
-
-        # Cross-channel normalization
-        denom = (embedding.pow(2).mean(dim=1, keepdim=True) + self.eps).sqrt()
-        norm = self.gamma / denom
-
-        # Tanh gate
-        gate = 1. + torch.tanh(embedding * norm + self.beta)
-
-        return x * gate            # [N, C, D]
-
+      def forward(self, x):                                    # x: [N, C, D]
+          emb   = (x.pow(2).sum(2, keepdim=True) + self.eps).sqrt() * self.alpha   # [N,C,1]
+          denom = (emb.pow(2).sum(1, keepdim=True) + self.eps).sqrt()              # L2 over C
+          gate  = 1.0 + torch.tanh(emb * (self.gamma / denom) + self.beta)
+          return x * gate                                       
 
 
 # ================================================================
